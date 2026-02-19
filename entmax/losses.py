@@ -23,30 +23,27 @@ class _GenericLoss(nn.Module):
         self.reduction = reduction
         self.ignore_index = ignore_index
         self.return_support_size = return_support_size
+
+        assert not return_support_size
         
         super(_GenericLoss, self).__init__()
 
     def forward(self, X, target):
+        if self.ignore_index is not None:
+            mask = target != self.ignore_index
+            X, target = X[mask], target[mask]
 
         loss = self.loss(X, target)
-        support = None
+        
         if isinstance(loss, tuple):
             # second element is the support
-            loss, support = loss
-
-        if self.ignore_index >= 0:
-            ignored_positions = target == self.ignore_index
-            size = float((target.size(0) - ignored_positions.sum()).item())
-            loss.masked_fill_(ignored_positions, 0.0)
-        else:
-            size = float(target.size(0))
-        if self.reduction == "sum":
+            loss, _ = loss
+        
+        if self.reduction == "mean":
+            loss = loss.mean()
+        elif self.reduction == "sum":
             loss = loss.sum()
-        elif self.reduction == "mean":
-            loss = loss.sum() / size
-
-        if self.return_support_size:
-            return loss, support
+        
         return loss
 
 
